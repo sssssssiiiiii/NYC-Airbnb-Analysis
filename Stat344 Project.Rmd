@@ -1,0 +1,181 @@
+---
+title: "344 Project"
+coder: Bessie Bao, Suri Chang
+output: html_document
+date: "2023-10-15"
+---
+
+Dataset
+```{r}
+library(arsenal)
+ny<-read.csv('/Users/bessie/Desktop/AB_NYC_2019.csv')
+ny=filter(test,price!=0)
+ny=transform(ny,higher_price=ifelse(price>=152.7551,1,0))
+```
+Simple random sampling and stratified sampling with respect to neighborhood groups (continuous variable: price) :
+```{r}
+set.seed(20)
+attach(ny)
+price<-ny$price
+neighborhood_group<-ny$neighbourhood_group
+N.h <- tapply(price,neighborhood_group,length)
+##N.h
+#population size for different regions
+neighborhood_group<- names(N.h) # name of the regions
+##eduyrs
+N<-sum(N.h)
+##N
+n<-1200
+##simple random sample
+set.seed(20)
+SRS.indices <- sample.int(N, n, replace = F)
+SRS.sample <- ny[SRS.indices , ]
+ybar.srs <- mean(SRS.sample$price)
+se.srs <- sqrt((1 - n / N) * var(SRS.sample$price) / n)
+srs <- c(ybar.srs, se.srs)
+srs
+##Stratified sampling using proportional allocation
+n.h.prop <- round( (N.h/N) * n)
+STR.sample.prop <- NULL
+set.seed(20)
+for (i in 1: length(neighborhood_group))
+{
+row.indices <- which(ny$neighbourhood_group == neighborhood_group[i])
+sample.indices <- sample(row.indices, n.h.prop[i], replace = F)
+STR.sample.prop <- rbind(STR.sample.prop, ny[sample.indices, ])
+}
+ybar.h.prop <- tapply(STR.sample.prop$price, STR.sample.prop$neighbourhood_group, mean)
+var.h.prop <- tapply(STR.sample.prop$price, STR.sample.prop$neighbourhood_group, var)
+##length of N.h=16, but length of var.h.prop & average income=14
+se.h.prop <- sqrt((1 - n.h.prop / N.h) * var.h.prop / n.h.prop)
+##rbind(ybar.h.prop, se.h.prop)
+ybar.str.prop <- sum(N.h / N * ybar.h.prop)
+se.str.prop <- sqrt(sum((N.h / N)^2 * se.h.prop^2))
+str.prop <- c(ybar.str.prop, se.str.prop)
+str.prop
+```
+Simple random sampling and stratified sampling with respect to neighborhood groups (Binary variable: price>=stratified sample
+mean or not) :
+```{r}
+set.seed(20)
+ny=transform(ny,higher_price=ifelse(price>=151.257781,1,0))
+attach(ny)
+higher_price<-ny$higher_price
+neighborhood_group<-ny$neighbourhood_group
+N.h <- tapply(higher_price,neighborhood_group,length)
+##N.h
+#population size for different regions
+neighborhood_group<- names(N.h) # name of the regions
+##eduyrs
+N<-sum(N.h)
+##N
+n<-1200
+##simple random sample
+set.seed(20)
+SRS.indices <- sample.int(N, n, replace = F)
+SRS.sample <- ny[SRS.indices , ]
+ybar.srs <- mean(SRS.sample$higher_price)
+se.srs <- sqrt((1 - n / N) * var(SRS.sample$higher_price) / n)
+srs <- c(ybar.srs, se.srs)
+srs
+c(ybar.srs-1.96*se.srs,ybar.srs+1.96*se.srs)
+##Stratified sampling using proportional allocation
+n.h.prop <- round( (N.h/N) * n)
+STR.sample.prop <- NULL
+set.seed(20)
+for (i in 1: length(neighborhood_group))
+{
+row.indices <- which(ny$neighbourhood_group == neighborhood_group[i])
+sample.indices <- sample(row.indices, n.h.prop[i], replace = F)
+STR.sample.prop <- rbind(STR.sample.prop, ny[sample.indices, ])
+}
+ybar.h.prop <- tapply(STR.sample.prop$higher_price, STR.sample.prop$neighbourhood_group, mean)
+var.h.prop <- tapply(STR.sample.prop$higher_price, STR.sample.prop$neighbourhood_group, var)
+se.h.prop <- sqrt((1 - n.h.prop / N.h) * var.h.prop / n.h.prop)
+##rbind(ybar.h.prop, se.h.prop)
+ybar.str.prop <- sum(N.h / N * ybar.h.prop)
+se.str.prop <- sqrt(sum((N.h / N)^2 * se.h.prop^2))
+str.prop <- c(ybar.str.prop, se.str.prop)
+str.prop
+c(ybar.str.prop-1.96*se.str.prop,ybar.str.prop+1.96*se.str.prop)
+##Population average:
+mean(ny$higher_price)
+```
+Graphical illustration of prices (Population, SRS sample & Stratified sample):
+```{r}
+## Population distribution of prices
+ppl_counts=as.data.frame(table(ny$price))
+ppl_counts$Var1 <- as.numeric(as.character(ppl_counts$Var1))
+names(ppl_counts)=c('Price','Frequency')
+hist(ppl_counts$Price,breaks=200,main='Distribution of prices in the population',xlab='Prices',ylab='Frequency')
+## SRS sample distribution of prices
+sample_counts=as.data.frame(table(SRS.sample$price))
+sample_counts$Var1 <- as.numeric(as.character(sample_counts$Var1))
+names(sample_counts)=c('Price','Frequency')
+hist(sample_counts$Price,breaks=200,main='Distribution of prices in the SRS sample',xlab='Prices',ylab='Frequency')
+## Stratified sample distribution of prices
+str_sample_counts=as.data.frame(table(STR.sample.prop$price))
+str_sample_counts$Var1 <- as.numeric(as.character(str_sample_counts$Var1))
+names(str_sample_counts)=c('Price','Frequency')
+hist(str_sample_counts$higher_price,breaks=200,main='Distribution of prices in the stratified
+sample',xlab='Prices',ylab='Frequency')
+```
+Graphical illustration of mean prices (Population)
+```{r}
+## Population distribution of mean prices over different neighborhood groups.
+ppl_neigh_counts=as.data.frame(table(ny$neighbourhood_group))
+names(ppl_neigh_counts)=c('neighbourhood_group','frequencies')
+ppl_meanP <- ny %>%
+group_by(neighbourhood_group) %>%
+summarize(mean_price=mean(price))
+ppl_meanP=merge(ppl_neigh_counts,ppl_meanP,by='neighbourhood_group')
+new_ny=merge(ppl_meanP,ny,by='neighbourhood_group')
+h1=hist(new_ny$mean_price,main='Distribution of average stratum means w.r.t neighbourhood groups')
+text(h1$mids,h1$neighbourhood_group,labels=TRUE)
+```
+Graphical illustration of mean prices (SRS sample)
+```{r}
+## STR distribution of mean prices over different neighborhood groups.
+SRS_neigh_counts=as.data.frame(table(SRS.sample$neighbourhood_group))
+names(SRS_neigh_counts)=c('neighbourhood_group','frequencies')
+SRS_meanP <- SRS.sample %>%
+group_by(neighbourhood_group) %>%
+summarize(mean_price=mean(price))
+SRS_meanP=merge(SRS_neigh_counts,SRS_meanP,by='neighbourhood_group')
+new_SRS=merge(SRS_meanP,SRS.sample,by='neighbourhood_group')
+h2=hist(new_SRS$mean_price,main='Distribution of average SRS stratum means w.r.t neighbourhood groups')
+text(h2$mids,h2$neighbourhood_group,labels=TRUE)
+```
+Graphical illustration of mean prices (Stratified sample)
+```{r}
+## STR distribution of mean prices over different neighborhood groups.
+STR_neigh_counts=as.data.frame(table(STR.sample.prop$neighbourhood_group))
+names(STR_neigh_counts)=c('neighbourhood_group','frequencies')
+STR_meanP <- STR.sample.prop %>%
+group_by(neighbourhood_group) %>%
+summarize(mean_price=mean(price))
+STR_meanP=merge(STR_neigh_counts,STR_meanP,by='neighbourhood_group')
+new_STR=merge(STR_meanP,STR.sample.prop,by='neighbourhood_group')
+h3=hist(new_STR$mean_price,main='Distribution of average STR stratum means w.r.t neighbourhood groups',breaks=20)
+text(h3$mids,h3$neighbourhood_group,labels=TRUE)
+```
+Table illustration of the binary variable of prices (Population, SRS sample & Stratified sample):
+```{r}
+## Population distribution of prices
+ppl_bi_counts=as.data.frame(table(ny$higher_price))
+ppl_bi_counts$Var1 <- as.numeric(as.character(ppl_bi_counts$Var1))
+names(ppl_bi_counts)=c('Higher_price','Frequency')
+View(ppl_bi_counts)
+## SRS sample distribution of prices
+sample_bi_counts=as.data.frame(table(SRS.sample$higher_price))
+sample_bi_counts$Var1 <- as.numeric(as.character(sample_bi_counts$Var1))
+names(sample_bi_counts)=c('Higher_price','Frequency')
+View(sample_bi_counts)
+## Stratified sample distribution of prices
+str_sample_bi_counts=as.data.frame(table(STR.sample.prop$higher_price))
+str_sample_bi_counts$Var1 <- as.numeric(as.character(str_sample_bi_counts$Var1))
+names(str_sample_bi_counts)=c('Higher_price','Frequency')
+View(str_sample_bi_counts)
+```
+
+
